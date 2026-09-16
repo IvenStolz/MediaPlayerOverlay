@@ -12,7 +12,7 @@
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
-    app.setWindowIcon(QIcon(":/SpotifyRemote/assets/icon.png"));
+    app.setWindowIcon(QIcon(":/MediaPlayerOverlay/assets/icon.png"));
     QQmlApplicationEngine engine;
 
     QObject::connect(
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     MediaManager mediaManager;
     engine.rootContext()->setContextProperty("mediaManager", &mediaManager);
-    engine.load(QUrl(QStringLiteral("qrc:/SpotifyRemote/Main.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/MediaPlayerOverlay/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
         return -1;

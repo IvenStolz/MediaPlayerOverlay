@@ -262,7 +262,7 @@ Rectangle {
         anchors.bottom: parent.bottom
 
         FramelessButton {
-            iconSource: "qrc:/SpotifyRemote/assets/icons/settings.svg"
+            iconSource: "qrc:/MediaPlayerOverlay/assets/icons/settings.svg"
             iconSize: 26
             hoverIconColor: accentColors[0]
             Layout.fillWidth: true
@@ -273,19 +273,19 @@ Rectangle {
             Layout.fillWidth: true
 
             MediaControlButton {
-                iconSource: "qrc:/SpotifyRemote/assets/icons/skip_previous.svg"
+                iconSource: "qrc:/MediaPlayerOverlay/assets/icons/skip_previous.svg"
                 iconSize: 40
                 hoverIconColor: accentColors[0]
                 onButtonPressed: mediaPlayerRoot.previousClicked()
             }
             MediaControlButton {
-                iconSource: mediaPlayerRoot.isPlaying ? "qrc:/SpotifyRemote/assets/icons/pause.svg" : "qrc:/SpotifyRemote/assets/icons/play.svg"
+                iconSource: mediaPlayerRoot.isPlaying ? "qrc:/MediaPlayerOverlay/assets/icons/pause.svg" : "qrc:/MediaPlayerOverlay/assets/icons/play.svg"
                 iconSize: 40
                 hoverIconColor: accentColors[0]
                 onButtonPressed: mediaPlayerRoot.playPauseClicked()
             }
             MediaControlButton {
-                iconSource: "qrc:/SpotifyRemote/assets/icons/skip_next.svg"
+                iconSource: "qrc:/MediaPlayerOverlay/assets/icons/skip_next.svg"
                 iconSize: 40
                 hoverIconColor: accentColors[0]
                 onButtonPressed: mediaPlayerRoot.nextClicked()
@@ -293,7 +293,7 @@ Rectangle {
         }
 
         FramelessButton {
-            iconSource: "qrc:/SpotifyRemote/assets/icons/lyrics.svg"
+            iconSource: "qrc:/MediaPlayerOverlay/assets/icons/lyrics.svg"
             iconSize: 26
             hoverIconColor: accentColors[0]
             Layout.fillWidth: true

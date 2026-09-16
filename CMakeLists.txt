@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(SpotifyRemote VERSION 1.0 LANGUAGES CXX)
+project(MediaPlayerOverlay VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,7 +10,7 @@ find_package(Qt6 REQUIRED COMPONENTS Quick Network QuickEffects)
 
 qt_standard_project_setup()
 
-qt_add_executable(appSpotifyRemote
+qt_add_executable(MediaPlayerOverlay
         main.cpp
         WindowBlur.h
         MediaManager.h
@@ -19,10 +19,10 @@ qt_add_executable(appSpotifyRemote
         appicon.rc
 )
 
-set_target_properties(appSpotifyRemote PROPERTIES WIN32_EXECUTABLE TRUE)
+set_target_properties(MediaPlayerOverlay PROPERTIES WIN32_EXECUTABLE TRUE)
 
-qt_add_qml_module(appSpotifyRemote
-        URI SpotifyRemote
+qt_add_qml_module(MediaPlayerOverlay
+        URI MediaPlayerOverlay
         VERSION 1.0
         QML_FILES
         Main.qml
@@ -41,7 +41,7 @@ qt_add_qml_module(appSpotifyRemote
         assets/icons/settings.svg
 )
 
-target_link_libraries(appSpotifyRemote PRIVATE
+target_link_libraries(MediaPlayerOverlay PRIVATE
         Qt6::Quick
         Qt6::Network
         Qt6::QuickEffects
