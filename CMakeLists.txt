@@ -16,7 +16,10 @@ qt_add_executable(appSpotifyRemote
         MediaManager.h
         MediaManager.cpp
         LyricsFetcher.h
+        appicon.rc
 )
+
+set_target_properties(appSpotifyRemote PROPERTIES WIN32_EXECUTABLE TRUE)
 
 qt_add_qml_module(appSpotifyRemote
         URI SpotifyRemote

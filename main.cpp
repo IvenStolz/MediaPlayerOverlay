@@ -2,6 +2,7 @@
 #include <QQmlApplicationEngine>
 #include <qqmlcontext.h>
 #include <QQuickWindow>
+#include <QIcon>
 
 #include "MediaManager.h"
 
@@ -11,6 +12,7 @@
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
+    app.setWindowIcon(QIcon(":/SpotifyRemote/assets/icon.png"));
     QQmlApplicationEngine engine;
 
     QObject::connect(
@@ -38,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     MediaManager mediaManager;
     engine.rootContext()->setContextProperty("mediaManager", &mediaManager);
-    engine.loadFromModule("SpotifyRemote", "Main");
+    engine.load(QUrl(QStringLiteral("qrc:/SpotifyRemote/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
         return -1;

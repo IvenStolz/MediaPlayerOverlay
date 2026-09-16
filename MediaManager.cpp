@@ -138,7 +138,9 @@ void MediaManager::updateMediaProperties()
         m_title = QString::fromStdWString(properties.Title().c_str());
         m_artist = QString::fromStdWString(properties.Artist().c_str());
 
-        QMetaObject::invokeMethod(this, [this, title = m_title, artist = m_artist]()
+        QString cleanTitle = cleanTrackTitle(m_title);
+
+        QMetaObject::invokeMethod(this, [this, title = cleanTitle, artist = m_artist]()
         {
             m_lyricsFetcher.fetchLyrics(title, artist);
         });
@@ -300,6 +302,24 @@ void MediaManager::parseLyricsString(const QString& lrcData)
         }
     }
     emit lyricsChanged();
+}
+
+QString MediaManager::cleanTrackTitle(QString title) {
+    QRegularExpression fluffRegex(R"((?i)[\[\(](official|music|lyric|video|audio|visualizer|live|studio|version|animated|amv|hd|4k).*?[\]\)])");
+    title.replace(fluffRegex, "");
+
+    QRegularExpression featRegex(R"((?i)(ft\.|feat\.|featuring).*$)");
+    title.replace(featRegex, "");
+
+    return title.trimmed();
+}
+
+QString MediaManager::cleanArtistName(QString artist)
+{
+    QRegularExpression fluffRegex(R"((?i)(official|vevo|videos))");
+    artist.replace(fluffRegex, "");
+
+    return artist.trimmed();
 }
 
 

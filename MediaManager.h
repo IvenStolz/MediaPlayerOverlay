@@ -57,6 +57,8 @@ private:
     void updateTimelineProperties();
     QList<QColor> getAccentColorsFromImage(const QByteArray& imageBytes);
     void parseLyricsString(const QString& lyricData);
+    QString cleanTrackTitle(QString title);
+    QString cleanArtistName(QString artist);
 
     QString m_title = "Waiting for Title...";
     QString m_artist = "- - -";
