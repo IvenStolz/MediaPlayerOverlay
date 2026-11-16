@@ -10,27 +10,67 @@
 #include <algorithm>
 #include <QRegularExpression>
 #include <winrt/Windows.Storage.Streams.h>
+#include "LyricsUtils.h"
 
 using namespace winrt::Windows::Media::Control;
 
 MediaManager::MediaManager(QObject* parent) : QObject(parent)
 {
-    QTimer* timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, [this]()
+    m_positionTimer.setInterval(100);
+    connect(&m_positionTimer, &QTimer::timeout, this, [this]()
     {
-        if (m_isPlaying && m_songPositionMs < m_songDurationMs)
-        {
-            m_songPositionMs += 1000;
+        const int elapsedMs = m_playbackClock.isValid()
+            ? static_cast<int>(m_playbackClock.elapsed())
+            : 0;
+        const int nextPosition = PlaybackTimeline::advancePosition(
+            m_positionAnchorMs, m_songDurationMs, elapsedMs, m_isPlaying);
+        if (nextPosition != m_songPositionMs) {
+            m_songPositionMs = nextPosition;
             emit mediaChanged();
         }
     });
-    timer->start(1000);
+    m_positionTimer.start();
 
-    connect(&m_lyricsFetcher, &LyricsFetcher::lyricsReady, this, &MediaManager::parseLyricsString);
+    m_seekTimeoutTimer.setSingleShot(true);
+    connect(&m_seekTimeoutTimer, &QTimer::timeout, this, [this]()
+    {
+        m_pendingSeekFromMs = -1;
+        m_pendingSeekToMs = -1;
+        updateTimelineProperties();
+    });
 
-    connect(&m_lyricsFetcher, &LyricsFetcher::lyricsFailed, this, [this](const QString& errorMsg) {
+    connect(&m_lyricsFetcher, &LyricsFetcher::lyricsReady, this,
+            [this](const QString& lookupKey, const QString& lyrics, bool synced) {
+        if (lookupKey != m_lastLyricsLookup) {
+            return;
+        }
+        m_lyricsLoading = false;
+        m_lyricsError.clear();
+        if (!lookupKey.isEmpty()) {
+            if (!m_lyricsCache.contains(lookupKey)) {
+                m_lyricsCacheOrder.append(lookupKey);
+            } else {
+                m_lyricsCacheOrder.removeAll(lookupKey);
+                m_lyricsCacheOrder.append(lookupKey);
+            }
+            m_lyricsCache.insert(lookupKey, {lyrics, synced});
+            while (m_lyricsCacheOrder.size() > MaxLyricsCacheEntries) {
+                m_lyricsCache.remove(m_lyricsCacheOrder.takeFirst());
+            }
+        }
+        parseLyricsString(lyrics, synced);
+    });
+
+    connect(&m_lyricsFetcher, &LyricsFetcher::lyricsFailed, this,
+            [this](const QString& lookupKey, const QString& errorMsg) {
+        if (lookupKey != m_lastLyricsLookup) {
+            return;
+        }
         qDebug() << "Lyrics Fehler:" << errorMsg;
         m_parsedLyrics.clear();
+        m_lyricsSynced = false;
+        m_lyricsLoading = false;
+        m_lyricsError = errorMsg;
         emit lyricsChanged();
     });
 
@@ -91,8 +131,18 @@ void MediaManager::updateSession()
     {
         m_currentSession.MediaPropertiesChanged(m_mediaPropertiesChangedToken);
         m_currentSession.PlaybackInfoChanged(m_playbackInfoChangedToken);
+        m_currentSession.TimelinePropertiesChanged(m_timelinePropertiesChangedToken);
     }
 
+    m_songPositionMs = 0;
+    m_songDurationMs = 0;
+    m_timelineStartMs = 0;
+    m_positionAnchorMs = 0;
+    m_playbackClock.invalidate();
+    m_isPlaying = false;
+    m_pendingSeekFromMs = -1;
+    m_pendingSeekToMs = -1;
+    m_seekTimeoutTimer.stop();
     m_currentSession = m_manager.GetCurrentSession();
 
     if (m_currentSession)
@@ -124,6 +174,12 @@ void MediaManager::updateSession()
         updateMediaProperties();
         updatePlaybackInfo();
         updateTimelineProperties();
+    } else {
+        m_songPositionMs = 0;
+        m_songDurationMs = 0;
+        m_timelineStartMs = 0;
+        m_isPlaying = false;
+        emit mediaChanged();
     }
 }
 
@@ -138,12 +194,41 @@ void MediaManager::updateMediaProperties()
         m_title = QString::fromStdWString(properties.Title().c_str());
         m_artist = QString::fromStdWString(properties.Artist().c_str());
 
-        QString cleanTitle = cleanTrackTitle(m_title);
+        QString cleanTitle = LyricsUtils::cleanTrackTitle(m_title);
+        const QString cleanArtist = LyricsUtils::cleanArtistName(m_artist);
+        const QString artistPrefix = QRegularExpression::escape(cleanArtist);
+        cleanTitle.remove(QRegularExpression(
+            QString(R"(^\s*%1\s*[-|:]\s*)").arg(artistPrefix),
+            QRegularExpression::CaseInsensitiveOption));
+        const QString lookupKey = cleanTitle + QChar(0x1f) + cleanArtist;
 
-        QMetaObject::invokeMethod(this, [this, title = cleanTitle, artist = m_artist]()
-        {
-            m_lyricsFetcher.fetchLyrics(title, artist);
-        });
+        if (cleanTitle.isEmpty() || cleanArtist.isEmpty()) {
+            m_lastLyricsLookup.clear();
+            m_lyricsLookupTitle.clear();
+            m_lyricsLookupArtist.clear();
+            m_parsedLyrics.clear();
+            m_lyricsSynced = false;
+            m_lyricsLoading = false;
+            m_lyricsError.clear();
+            emit lyricsChanged();
+            QMetaObject::invokeMethod(this, [this]()
+            {
+                m_lyricsFetcher.cancelPendingRequests();
+            });
+        } else if (lookupKey != m_lastLyricsLookup) {
+            m_lastLyricsLookup = lookupKey;
+            m_lyricsLookupTitle = cleanTitle;
+            m_lyricsLookupArtist = cleanArtist;
+            m_songPositionMs = 0;
+            m_songDurationMs = 0;
+            m_parsedLyrics.clear();
+            m_lyricsSynced = false;
+            m_lyricsError.clear();
+            m_lyricsLoading = false;
+            emit lyricsChanged();
+            emit mediaChanged();
+            requestLyrics(cleanTitle, cleanArtist, lookupKey);
+        }
 
         auto thumbnail = properties.Thumbnail();
 
@@ -190,8 +275,44 @@ void MediaManager::updateTimelineProperties()
     try
     {
         auto timeline = m_currentSession.GetTimelineProperties();
-        m_songDurationMs = timeline.EndTime().count() / 10000;
-        m_songPositionMs = timeline.Position().count() / 10000;
+        const qint64 startTicks = timeline.StartTime().count();
+        const int startMs = PlaybackTimeline::millisecondsFromTicks(startTicks);
+        const int durationMs = PlaybackTimeline::durationMilliseconds(
+            startTicks, timeline.EndTime().count());
+        const int positionMs = PlaybackTimeline::positionMilliseconds(
+            startTicks, timeline.Position().count());
+
+        m_timelineStartMs = startMs;
+        if (durationMs > 0 || !m_isPlaying) {
+            m_songDurationMs = qMax(0, durationMs);
+        }
+        if (m_pendingSeekToMs >= 0) {
+            if (PlaybackTimeline::shouldIgnoreSeekUpdate(
+                    m_pendingSeekFromMs, m_pendingSeekToMs, positionMs)) {
+                emit mediaChanged();
+                return;
+            }
+            m_songPositionMs = PlaybackTimeline::clampPosition(
+                positionMs, m_songDurationMs);
+            m_positionAnchorMs = m_songPositionMs;
+            if (m_isPlaying) {
+                m_playbackClock.restart();
+            }
+            m_pendingSeekFromMs = -1;
+            m_pendingSeekToMs = -1;
+            m_seekTimeoutTimer.stop();
+            emit mediaChanged();
+            return;
+        }
+        if (positionMs >= 0 && PlaybackTimeline::shouldRebasePosition(
+                m_songPositionMs, positionMs, m_isPlaying)) {
+            m_songPositionMs = PlaybackTimeline::clampPosition(
+                positionMs, m_songDurationMs);
+            m_positionAnchorMs = m_songPositionMs;
+            if (m_isPlaying) {
+                m_playbackClock.restart();
+            }
+        }
 
         emit mediaChanged();
     }
@@ -200,13 +321,71 @@ void MediaManager::updateTimelineProperties()
     }
 }
 
+void MediaManager::requestLyrics(const QString& title, const QString& artist,
+                                 const QString& lookupKey)
+{
+    const auto cached = m_lyricsCache.constFind(lookupKey);
+    if (cached != m_lyricsCache.cend()) {
+        m_lyricsCacheOrder.removeAll(lookupKey);
+        m_lyricsCacheOrder.append(lookupKey);
+        m_lyricsLoading = false;
+        m_lyricsError.clear();
+        parseLyricsString(cached->text, cached->synced);
+        QMetaObject::invokeMethod(this, [this]()
+        {
+            m_lyricsFetcher.cancelPendingRequests();
+        });
+        return;
+    }
+
+    m_lyricsLoading = true;
+    m_lyricsError.clear();
+    emit lyricsChanged();
+    QMetaObject::invokeMethod(this, [this, title, artist, lookupKey]()
+    {
+        m_lyricsFetcher.fetchLyrics(title, artist, lookupKey);
+    });
+}
+
+void MediaManager::retryLyrics()
+{
+    if (m_lastLyricsLookup.isEmpty() || m_lyricsLookupTitle.isEmpty()
+        || m_lyricsLookupArtist.isEmpty() || m_lyricsLoading) {
+        return;
+    }
+    m_lyricsLoading = true;
+    m_lyricsError.clear();
+    m_parsedLyrics.clear();
+    m_lyricsSynced = false;
+    emit lyricsChanged();
+    const QString lookupKey = m_lastLyricsLookup;
+    QMetaObject::invokeMethod(this, [this, lookupKey]()
+    {
+        m_lyricsFetcher.fetchLyrics(m_lyricsLookupTitle, m_lyricsLookupArtist, lookupKey);
+    });
+}
+
 void MediaManager::updatePlaybackInfo()
 {
     if (!m_currentSession) return;
 
     auto playbackInfo = m_currentSession.GetPlaybackInfo();
+    const bool wasPlaying = m_isPlaying;
     m_isPlaying = (playbackInfo.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
+    if (m_isPlaying != wasPlaying) {
+        if (m_isPlaying) {
+            m_positionAnchorMs = m_songPositionMs;
+            m_playbackClock.start();
+        } else if (m_playbackClock.isValid()) {
+            m_songPositionMs = PlaybackTimeline::advancePosition(
+                m_positionAnchorMs, m_songDurationMs,
+                static_cast<int>(m_playbackClock.elapsed()), true);
+            m_positionAnchorMs = m_songPositionMs;
+            m_playbackClock.invalidate();
+        }
+    }
 
+    updateTimelineProperties();
     emit mediaChanged();
 }
 
@@ -274,54 +453,13 @@ QList<QColor> MediaManager::getAccentColorsFromImage(const QByteArray& imageByte
     return {primaryColor, secondaryColor};
 }
 
-void MediaManager::parseLyricsString(const QString& lrcData)
+void MediaManager::parseLyricsString(const QString& lyricData, bool synced)
 {
-    m_parsedLyrics.clear();
-    // For Text: [mm:ss.xx]
-    QRegularExpression regex(R"(\[(\d{2}):(\d{2})\.(\d{2,3})\](.*))");
-    QStringList lines = lrcData.split('\n', Qt::SkipEmptyParts);
-    for (const QString& line : lines)
-    {
-        QRegularExpressionMatch match = regex.match(line);
-        if (match.hasMatch())
-        {
-            int minutes = match.captured(1).toInt();
-            int seconds = match.captured(2).toInt();
-            int milliseconds = match.captured(3).toInt();
-            if (match.captured(3).length() == 2) {
-                milliseconds *= 10;
-            }
-            int totalMs = (minutes * 60000) + (seconds * 1000) + (milliseconds);
-            QString text = match.captured(4).trimmed();
-
-            QVariantMap lyricLine;
-            lyricLine["timeMs"] = totalMs;
-            lyricLine["text"] = text;
-
-            m_parsedLyrics.append(lyricLine);
-        }
-    }
+    const LyricsUtils::ParsedLyrics parsed = LyricsUtils::parse(lyricData, synced);
+    m_parsedLyrics = parsed.lines;
+    m_lyricsSynced = parsed.synced;
     emit lyricsChanged();
 }
-
-QString MediaManager::cleanTrackTitle(QString title) {
-    QRegularExpression fluffRegex(R"((?i)[\[\(](official|music|lyric|video|audio|visualizer|live|studio|version|animated|amv|hd|4k).*?[\]\)])");
-    title.replace(fluffRegex, "");
-
-    QRegularExpression featRegex(R"((?i)(ft\.|feat\.|featuring).*$)");
-    title.replace(featRegex, "");
-
-    return title.trimmed();
-}
-
-QString MediaManager::cleanArtistName(QString artist)
-{
-    QRegularExpression fluffRegex(R"((?i)(official|vevo|videos))");
-    artist.replace(fluffRegex, "");
-
-    return artist.trimmed();
-}
-
 
 void MediaManager::togglePlayPause()
 {
@@ -350,7 +488,18 @@ void MediaManager::previous()
 void MediaManager::skipToTime(int ms)
 {
     if (m_currentSession) {
-        int64_t ticks = static_cast<int64_t>(ms) * 10000;
+        const int clampedMs = PlaybackTimeline::clampPosition(ms, m_songDurationMs);
+        m_pendingSeekFromMs = m_songPositionMs;
+        m_pendingSeekToMs = clampedMs;
+        m_songPositionMs = clampedMs;
+        m_positionAnchorMs = clampedMs;
+        if (m_isPlaying) {
+            m_playbackClock.restart();
+        }
+        m_seekTimeoutTimer.start(2500);
+        emit mediaChanged();
+
+        int64_t ticks = static_cast<int64_t>(clampedMs + m_timelineStartMs) * 10000;
 
         m_currentSession.TryChangePlaybackPositionAsync(ticks);
     }

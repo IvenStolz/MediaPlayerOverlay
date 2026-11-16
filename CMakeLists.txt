@@ -9,6 +9,7 @@ list(APPEND CMAKE_PREFIX_PATH "C:/Qt/6.11.2/mingw_64")
 find_package(Qt6 REQUIRED COMPONENTS Quick Network QuickEffects)
 
 qt_standard_project_setup()
+include(CTest)
 
 qt_add_executable(MediaPlayerOverlay
         main.cpp
@@ -16,6 +17,8 @@ qt_add_executable(MediaPlayerOverlay
         MediaManager.h
         MediaManager.cpp
         LyricsFetcher.h
+        LyricsUtils.h
+        PlaybackTimeline.h
         appicon.rc
 )
 
@@ -48,3 +51,15 @@ target_link_libraries(MediaPlayerOverlay PRIVATE
         dwmapi
         windowsapp
 )
+
+if(BUILD_TESTING)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    qt_add_executable(MediaPlayerOverlayTests
+            tests/CoreFunctionsTests.cpp
+            LyricsUtils.h
+            PlaybackTimeline.h
+    )
+    target_include_directories(MediaPlayerOverlayTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(MediaPlayerOverlayTests PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME MediaPlayerOverlayTests COMMAND MediaPlayerOverlayTests)
+endif()
