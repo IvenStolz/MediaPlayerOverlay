@@ -15,6 +15,34 @@ Rectangle {
     property int songPositionMs: 0
     property int songDurationMs: 0
     property list<color> accentColors: ["#e3dc91", "#1f4026"]
+    property string appearanceMode: "Acrylic"
+    property string colorTheme: "Album Cover"
+    property bool useSongAccentColors: false
+    property var customColors: ["#92B38F", "#587A64"]
+    property bool useAccentColorsForControls: true
+    property var customControlColors: ["#92B38F", "#587A64"]
+    property real overlayOpacity: 20
+    property real albumCoverBlur: 80
+    property real backgroundBrightness: 0
+    property real backgroundSaturation: 0
+    readonly property real backgroundOpacity: appearanceMode === "Opaque"
+                                               ? 1
+                                               : Math.max(0, Math.min(1, overlayOpacity / 100))
+    readonly property var themeColors: {
+        const colors = colorTheme === "Album Cover" || useSongAccentColors
+                       ? accentColors : customColors
+        const firstColor = colors && colors.length > 0 ? colors[0] : "#e3dc91"
+        const secondColor = colorTheme === "Single Color"
+                            ? firstColor
+                            : (colors && colors.length > 1 ? colors[1] : firstColor)
+        return [firstColor, secondColor]
+    }
+    readonly property var controlColors: {
+        const colors = useAccentColorsForControls ? accentColors : customControlColors
+        const firstColor = colors && colors.length > 0 ? colors[0] : "#e3dc91"
+        const secondColor = colors && colors.length > 1 ? colors[1] : firstColor
+        return [firstColor, secondColor]
+    }
 
     signal playPauseClicked()
 
@@ -23,6 +51,8 @@ Rectangle {
     signal previousClicked()
 
     signal skipToTime(int ms)
+
+    signal settingsClicked()
 
     width: 404
     height: 180
@@ -40,6 +70,27 @@ Rectangle {
         let m = Math.floor(totalSeconds / 60)
         let s = totalSeconds % 60
         return m + ":" + (s < 10 ? "0" : "") + s
+    }
+
+    function adjustColorBrightness(color, amount) {
+        const factor = Math.max(-1, Math.min(1, amount / 100))
+        const adjust = function(channel) {
+            return factor >= 0
+                ? channel + (1 - channel) * factor
+                : channel * (1 + factor)
+        }
+        return Qt.rgba(adjust(color.r), adjust(color.g), adjust(color.b), color.a)
+    }
+
+    function adjustColorSaturation(color, amount) {
+        const factor = Math.max(-1, Math.min(1, amount / 100))
+        const gray = color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722
+        const scale = 1 + factor
+        return Qt.rgba(
+            Math.max(0, Math.min(1, gray + (color.r - gray) * scale)),
+            Math.max(0, Math.min(1, gray + (color.g - gray) * scale)),
+            Math.max(0, Math.min(1, gray + (color.b - gray) * scale)),
+            color.a)
     }
 
     Item {
@@ -62,12 +113,47 @@ Rectangle {
             anchors.fill: imgBackground
             source: imgBackground
             autoPaddingEnabled: false
-            saturation: 1
-            brightness: 0.1
-            blurEnabled: true
-            blur: 1.0
-            blurMax: 80
-            opacity: 0.1
+            saturation: Math.max(-1, Math.min(1, mediaPlayerRoot.backgroundSaturation / 100))
+            brightness: Math.max(-1, Math.min(1, mediaPlayerRoot.backgroundBrightness / 100))
+            blurEnabled: mediaPlayerRoot.colorTheme === "Album Cover"
+            blur: Math.max(0, Math.min(1, mediaPlayerRoot.albumCoverBlur / 100))
+            blurMax: 128
+            opacity: mediaPlayerRoot.colorTheme === "Album Cover"
+                     ? mediaPlayerRoot.backgroundOpacity : 0
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: mediaPlayerRoot.colorTheme !== "Album Cover"
+            opacity: mediaPlayerRoot.backgroundOpacity
+            color: mediaPlayerRoot.adjustColorBrightness(
+                       mediaPlayerRoot.adjustColorSaturation(
+                           mediaPlayerRoot.themeColors[0],
+                           mediaPlayerRoot.backgroundSaturation),
+                       mediaPlayerRoot.backgroundBrightness)
+
+            gradient: mediaPlayerRoot.colorTheme === "Gradient" ? gradientBackground : null
+
+            Gradient {
+                id: gradientBackground
+                orientation: Gradient.Horizontal
+                GradientStop {
+                    position: 0
+                    color: mediaPlayerRoot.adjustColorBrightness(
+                              mediaPlayerRoot.adjustColorSaturation(
+                                  mediaPlayerRoot.themeColors[0],
+                                  mediaPlayerRoot.backgroundSaturation),
+                              mediaPlayerRoot.backgroundBrightness)
+                }
+                GradientStop {
+                    position: 1
+                    color: mediaPlayerRoot.adjustColorBrightness(
+                              mediaPlayerRoot.adjustColorSaturation(
+                                  mediaPlayerRoot.themeColors[1],
+                                  mediaPlayerRoot.backgroundSaturation),
+                              mediaPlayerRoot.backgroundBrightness)
+                }
+            }
         }
     }
     RowLayout {
@@ -179,11 +265,11 @@ Rectangle {
                                 orientation: Gradient.Horizontal
                                 GradientStop {
                                     position: 0.0
-                                    color: (mediaPlayerRoot.accentColors && mediaPlayerRoot.accentColors[0]) ? mediaPlayerRoot.accentColors[0] : "#ff3366"
+                                    color: mediaPlayerRoot.controlColors[0]
                                 }
                                 GradientStop {
                                     position: 1.0
-                                    color: (mediaPlayerRoot.accentColors && mediaPlayerRoot.accentColors[1]) ? mediaPlayerRoot.accentColors[1] : "#77c0ff"
+                                    color: mediaPlayerRoot.controlColors[1]
                                 }
                             }
                         }
@@ -264,8 +350,9 @@ Rectangle {
         FramelessButton {
             iconSource: "qrc:/MediaPlayerOverlay/assets/icons/settings.svg"
             iconSize: 26
-            hoverIconColor: accentColors[0]
+            hoverIconColor: mediaPlayerRoot.controlColors[0]
             Layout.fillWidth: true
+            onButtonPressed: mediaPlayerRoot.settingsClicked()
         }
 
         RowLayout {
@@ -275,19 +362,19 @@ Rectangle {
             MediaControlButton {
                 iconSource: "qrc:/MediaPlayerOverlay/assets/icons/skip_previous.svg"
                 iconSize: 40
-                hoverIconColor: accentColors[0]
+                hoverIconColor: mediaPlayerRoot.controlColors[0]
                 onButtonPressed: mediaPlayerRoot.previousClicked()
             }
             MediaControlButton {
                 iconSource: mediaPlayerRoot.isPlaying ? "qrc:/MediaPlayerOverlay/assets/icons/pause.svg" : "qrc:/MediaPlayerOverlay/assets/icons/play.svg"
                 iconSize: 40
-                hoverIconColor: accentColors[0]
+                hoverIconColor: mediaPlayerRoot.controlColors[0]
                 onButtonPressed: mediaPlayerRoot.playPauseClicked()
             }
             MediaControlButton {
                 iconSource: "qrc:/MediaPlayerOverlay/assets/icons/skip_next.svg"
                 iconSize: 40
-                hoverIconColor: accentColors[0]
+                hoverIconColor: mediaPlayerRoot.controlColors[0]
                 onButtonPressed: mediaPlayerRoot.nextClicked()
             }
         }
@@ -295,7 +382,7 @@ Rectangle {
         FramelessButton {
             iconSource: "qrc:/MediaPlayerOverlay/assets/icons/lyrics.svg"
             iconSize: 26
-            hoverIconColor: accentColors[0]
+            hoverIconColor: mediaPlayerRoot.controlColors[0]
             Layout.fillWidth: true
             onButtonPressed: {
                 if (mediaPlayerRoot.state === "showLyrics") {

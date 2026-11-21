@@ -1,14 +1,10 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <qqmlcontext.h>
-#include <QQuickWindow>
 #include <QIcon>
 
 #include "MediaManager.h"
-
-#ifdef Q_OS_WIN
-#include "WindowBlur.h"
-#endif
+#include "WindowBlurController.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
@@ -19,30 +15,32 @@ int main(int argc, char *argv[]) {
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
         &app,
-        []() { QCoreApplication::exit(-1); },
+        [&app](const QUrl& url) {
+            qCritical().noquote() << "QML root creation failed:" << url;
+            QCoreApplication::exit(-1);
+        },
         Qt::QueuedConnection
     );
 
-#ifdef Q_OS_WIN
     QObject::connect(
         &engine,
-        &QQmlApplicationEngine::objectCreated,
+        &QQmlEngine::warnings,
         &app,
-        [](QObject *object, const QUrl &) {
-            if (auto *window = qobject_cast<QQuickWindow *>(object)) {
-                HWND hwnd = reinterpret_cast<HWND>(window->winId());
-                enableWindowBlur(hwnd);
+        [](const QList<QQmlError>& warnings) {
+            for (const QQmlError& warning : warnings) {
+                qWarning().noquote() << warning.toString();
             }
-        },
-        Qt::DirectConnection
+        }
     );
-#endif
 
     MediaManager mediaManager;
+    WindowBlurController windowBlurController;
     engine.rootContext()->setContextProperty("mediaManager", &mediaManager);
+    engine.rootContext()->setContextProperty("windowBlurController", &windowBlurController);
     engine.load(QUrl(QStringLiteral("qrc:/MediaPlayerOverlay/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
+        qCritical() << "QML engine loaded no root objects.";
         return -1;
     }
 

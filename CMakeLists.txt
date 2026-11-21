@@ -10,10 +10,12 @@ find_package(Qt6 REQUIRED COMPONENTS Quick Network QuickEffects)
 
 qt_standard_project_setup()
 include(CTest)
+qt_policy(SET QTP0004 NEW)
 
 qt_add_executable(MediaPlayerOverlay
         main.cpp
         WindowBlur.h
+        WindowBlurController.h
         MediaManager.h
         MediaManager.cpp
         LyricsFetcher.h
@@ -34,6 +36,15 @@ qt_add_qml_module(MediaPlayerOverlay
         components/media_player/MediaPlayerCard.qml
         components/media_player/MediaControlButton.qml
         components/media_player/LyricsBox.qml
+        components/settings/SettingsBottomBar.qml
+        components/settings/AppearanceSettingsTab.qml
+        components/settings/SettingsPlaceholderTab.qml
+        components/settings/SettingsWindow.qml
+        components/settings/settings_elements/SettingsSelection.qml
+        components/settings/settings_elements/SettingsToggle.qml
+        components/settings/settings_elements/SettingsSlider.qml
+        components/settings/settings_elements/SettingsColorPicker.qml
+        components/settings/settings_elements/HsvColorPicker.qml
         RESOURCES
         assets/icons/play.svg
         assets/icons/pause.svg
@@ -42,6 +53,13 @@ qt_add_qml_module(MediaPlayerOverlay
         assets/icons/pin.svg
         assets/icons/lyrics.svg
         assets/icons/settings.svg
+        assets/icons/arrow_drop_down.svg
+        assets/icons/add.svg
+        assets/icons/close.svg
+        assets/icons/minimize.svg
+        assets/icons/fullscreen.svg
+        assets/icons/fullscreen_exit.svg
+        assets/icon.png
 )
 
 target_link_libraries(MediaPlayerOverlay PRIVATE

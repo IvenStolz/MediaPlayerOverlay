@@ -42,6 +42,13 @@ struct WINDOWCOMPOSITIONATTRIBDATA {
 
 typedef BOOL(WINAPI *pSetWindowCompositionAttribute)(HWND, WINDOWCOMPOSITIONATTRIBDATA *);
 
+inline pSetWindowCompositionAttribute windowCompositionAttributeFunction()
+{
+    static auto function = reinterpret_cast<pSetWindowCompositionAttribute>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "SetWindowCompositionAttribute"));
+    return function;
+}
+
 inline void enableWindowBlur(HWND hwnd, DWORD tintColor = 0x20000000)
 {
     if (!hwnd) return;
@@ -55,11 +62,7 @@ inline void enableWindowBlur(HWND hwnd, DWORD tintColor = 0x20000000)
     DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cornerPref, sizeof(cornerPref));
 
     // 3. Den "alten" Acrylic Blur anwenden (ignoriert die Rahmen-Pflicht von Windows 11)
-    static auto setWindowCompositionAttribute =
-        reinterpret_cast<pSetWindowCompositionAttribute>(
-            GetProcAddress(GetModuleHandleW(L"user32.dll"),
-                            "SetWindowCompositionAttribute"));
-
+    const auto setWindowCompositionAttribute = windowCompositionAttributeFunction();
     if (setWindowCompositionAttribute) {
         ACCENT_POLICY accent{};
         accent.AccentState = ACCENT_ENABLE_ACRYLICBLURBEHIND;
@@ -73,6 +76,26 @@ inline void enableWindowBlur(HWND hwnd, DWORD tintColor = 0x20000000)
 
         setWindowCompositionAttribute(hwnd, &data);
     }
+}
+
+inline void disableWindowBlur(HWND hwnd)
+{
+    if (!hwnd)
+        return;
+
+    const auto setWindowCompositionAttribute = windowCompositionAttributeFunction();
+    if (!setWindowCompositionAttribute)
+        return;
+
+    ACCENT_POLICY accent{};
+    accent.AccentState = ACCENT_DISABLED;
+
+    WINDOWCOMPOSITIONATTRIBDATA data{};
+    data.Attrib = WCA_ACCENT_POLICY;
+    data.pvData = &accent;
+    data.cbData = sizeof(accent);
+
+    setWindowCompositionAttribute(hwnd, &data);
 }
 
 #endif // Q_OS_WIN
