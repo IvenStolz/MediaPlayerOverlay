@@ -71,6 +71,14 @@ public:
 #endif
     }
 
+    Q_INVOKABLE void setWindowGeometry(QQuickWindow* window, int x, int y, int width, int height)
+    {
+        if (!window)
+            return;
+
+        window->setGeometry(x, y, width, height);
+    }
+
 private:
 #ifdef Q_OS_WIN
     static void updateWindowStyle(HWND hwnd, int index, LONG_PTR add, LONG_PTR remove)

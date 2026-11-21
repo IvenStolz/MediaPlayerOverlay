@@ -83,6 +83,10 @@ inline void disableWindowBlur(HWND hwnd)
     if (!hwnd)
         return;
 
+    // Reset DWM corner preference to remove residual frame/shadow on frameless peek states.
+    int cornerPref = 1; // DWMWCP_DONOTROUND
+    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cornerPref, sizeof(cornerPref));
+
     const auto setWindowCompositionAttribute = windowCompositionAttributeFunction();
     if (!setWindowCompositionAttribute)
         return;

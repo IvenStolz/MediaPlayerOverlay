@@ -25,16 +25,18 @@ Rectangle {
     property real albumCoverBlur: 80
     property real backgroundBrightness: 0
     property real backgroundSaturation: 0
+    property bool overlayHovered: false
+    property bool pinned: false
     readonly property real backgroundOpacity: appearanceMode === "Opaque"
-                                               ? 1
-                                               : Math.max(0, Math.min(1, overlayOpacity / 100))
+        ? 1
+        : Math.max(0, Math.min(1, overlayOpacity / 100))
     readonly property var themeColors: {
         const colors = colorTheme === "Album Cover" || useSongAccentColors
-                       ? accentColors : customColors
+            ? accentColors : customColors
         const firstColor = colors && colors.length > 0 ? colors[0] : "#e3dc91"
         const secondColor = colorTheme === "Single Color"
-                            ? firstColor
-                            : (colors && colors.length > 1 ? colors[1] : firstColor)
+            ? firstColor
+            : (colors && colors.length > 1 ? colors[1] : firstColor)
         return [firstColor, secondColor]
     }
     readonly property var controlColors: {
@@ -45,14 +47,12 @@ Rectangle {
     }
 
     signal playPauseClicked()
-
     signal nextClicked()
-
     signal previousClicked()
-
     signal skipToTime(int ms)
-
     signal settingsClicked()
+    signal pinClicked()
+    signal coverClicked()
 
     width: 404
     height: 180
@@ -63,6 +63,39 @@ Rectangle {
     radius: 8
     border.color: "#33ffffff"
     border.width: 0.5
+
+    Rectangle {
+        id: pinButton
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 6
+        anchors.rightMargin: 6
+        width: 30
+        height: 30
+        radius: 6
+        z: 2
+        visible: mediaPlayerRoot.overlayHovered
+        color: pinMouseArea.containsMouse ? "#44ffffff" : "transparent"
+
+        Image {
+            anchors.centerIn: parent
+            width: 20
+            height: 20
+            source: mediaPlayerRoot.pinned
+                ? "qrc:/MediaPlayerOverlay/assets/icons/pin_filled.svg"
+                : "qrc:/MediaPlayerOverlay/assets/icons/pin_outline.svg"
+            sourceSize.width: 24
+            sourceSize.height: 24
+        }
+
+        MouseArea {
+            id: pinMouseArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mediaPlayerRoot.pinClicked()
+        }
+    }
 
     function formatTime(ms) {
         if (ms <= 0) return "00:00"
@@ -119,7 +152,7 @@ Rectangle {
             blur: Math.max(0, Math.min(1, mediaPlayerRoot.albumCoverBlur / 100))
             blurMax: 128
             opacity: mediaPlayerRoot.colorTheme === "Album Cover"
-                     ? mediaPlayerRoot.backgroundOpacity : 0
+                ? mediaPlayerRoot.backgroundOpacity : 0
         }
 
         Rectangle {
@@ -127,10 +160,10 @@ Rectangle {
             visible: mediaPlayerRoot.colorTheme !== "Album Cover"
             opacity: mediaPlayerRoot.backgroundOpacity
             color: mediaPlayerRoot.adjustColorBrightness(
-                       mediaPlayerRoot.adjustColorSaturation(
-                           mediaPlayerRoot.themeColors[0],
-                           mediaPlayerRoot.backgroundSaturation),
-                       mediaPlayerRoot.backgroundBrightness)
+                mediaPlayerRoot.adjustColorSaturation(
+                    mediaPlayerRoot.themeColors[0],
+                    mediaPlayerRoot.backgroundSaturation),
+                mediaPlayerRoot.backgroundBrightness)
 
             gradient: mediaPlayerRoot.colorTheme === "Gradient" ? gradientBackground : null
 
@@ -140,22 +173,23 @@ Rectangle {
                 GradientStop {
                     position: 0
                     color: mediaPlayerRoot.adjustColorBrightness(
-                              mediaPlayerRoot.adjustColorSaturation(
-                                  mediaPlayerRoot.themeColors[0],
-                                  mediaPlayerRoot.backgroundSaturation),
-                              mediaPlayerRoot.backgroundBrightness)
+                        mediaPlayerRoot.adjustColorSaturation(
+                            mediaPlayerRoot.themeColors[0],
+                            mediaPlayerRoot.backgroundSaturation),
+                        mediaPlayerRoot.backgroundBrightness)
                 }
                 GradientStop {
                     position: 1
                     color: mediaPlayerRoot.adjustColorBrightness(
-                              mediaPlayerRoot.adjustColorSaturation(
-                                  mediaPlayerRoot.themeColors[1],
-                                  mediaPlayerRoot.backgroundSaturation),
-                              mediaPlayerRoot.backgroundBrightness)
+                        mediaPlayerRoot.adjustColorSaturation(
+                            mediaPlayerRoot.themeColors[1],
+                            mediaPlayerRoot.backgroundSaturation),
+                        mediaPlayerRoot.backgroundBrightness)
                 }
             }
         }
     }
+
     RowLayout {
         id: songInfoRoot
         anchors.top: parent.top
@@ -194,6 +228,12 @@ Rectangle {
                 maskSource: coverRect
                 maskThresholdMin: 0.5
                 maskSpreadAtMin: 1.0
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: mediaPlayerRoot.coverClicked()
             }
         }
 
@@ -324,7 +364,7 @@ Rectangle {
             }
         }
     }
-    // Lyrics
+
     LyricsBox {
         id: lyricsRoot
 
@@ -393,6 +433,7 @@ Rectangle {
             }
         }
     }
+
     states: [
         State {
             name: "showLyrics"
@@ -406,6 +447,7 @@ Rectangle {
             }
         }
     ]
+
     transitions: [
         Transition {
             from: "*"

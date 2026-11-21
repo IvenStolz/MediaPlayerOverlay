@@ -22,6 +22,8 @@ qt_add_executable(MediaPlayerOverlay
         LyricsUtils.h
         PlaybackTimeline.h
         appicon.rc
+        EdgeTrigger.h
+        EdgeTrigger.h
 )
 
 set_target_properties(MediaPlayerOverlay PROPERTIES WIN32_EXECUTABLE TRUE)
@@ -36,6 +38,7 @@ qt_add_qml_module(MediaPlayerOverlay
         components/media_player/MediaPlayerCard.qml
         components/media_player/MediaControlButton.qml
         components/media_player/LyricsBox.qml
+        components/media_player/SourceBubblePanel.qml
         components/settings/SettingsBottomBar.qml
         components/settings/AppearanceSettingsTab.qml
         components/settings/SettingsPlaceholderTab.qml
@@ -51,6 +54,8 @@ qt_add_qml_module(MediaPlayerOverlay
         assets/icons/skip_next.svg
         assets/icons/skip_previous.svg
         assets/icons/pin.svg
+        assets/icons/pin_filled.svg
+        assets/icons/pin_outline.svg
         assets/icons/lyrics.svg
         assets/icons/settings.svg
         assets/icons/arrow_drop_down.svg
@@ -76,6 +81,7 @@ if(BUILD_TESTING)
             tests/CoreFunctionsTests.cpp
             LyricsUtils.h
             PlaybackTimeline.h
+            EdgeTrigger.h
     )
     target_include_directories(MediaPlayerOverlayTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(MediaPlayerOverlayTests PRIVATE Qt6::Core Qt6::Test)

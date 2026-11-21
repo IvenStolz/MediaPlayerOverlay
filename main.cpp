@@ -3,6 +3,7 @@
 #include <qqmlcontext.h>
 #include <QIcon>
 
+#include "EdgeTrigger.h"
 #include "MediaManager.h"
 #include "WindowBlurController.h"
 
@@ -35,8 +36,10 @@ int main(int argc, char *argv[]) {
 
     MediaManager mediaManager;
     WindowBlurController windowBlurController;
+    EdgeTrigger edgeTrigger;
     engine.rootContext()->setContextProperty("mediaManager", &mediaManager);
     engine.rootContext()->setContextProperty("windowBlurController", &windowBlurController);
+    engine.rootContext()->setContextProperty("edgeTrigger", &edgeTrigger);
     engine.load(QUrl(QStringLiteral("qrc:/MediaPlayerOverlay/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
