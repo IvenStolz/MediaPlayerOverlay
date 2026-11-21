@@ -14,6 +14,11 @@ Column {
     property real albumCoverBlur: 80
     property real backgroundBrightness: 0
     property real backgroundSaturation: 0
+    property real overlayScalePercent: 100
+    property bool bubbleColumnCollapsedByDefault: true
+    property bool proximityGlowEnabled: true
+    property real proximityGlowStrength: 0.85
+    property int proximityGlowDistancePx: 140
 
     spacing: 8
     readonly property int minimumWidth: 360
@@ -48,6 +53,27 @@ Column {
         valueSuffix: "%"
         onValueEdited: function(value) {
             appearanceSettingsTab.overlayOpacity = value
+        }
+    }
+
+    SettingsSlider {
+        title: "Overlay size"
+        description: "Scale the overlay from half size to one and a half times."
+        from: 50
+        to: 150
+        value: appearanceSettingsTab.overlayScalePercent
+        valueSuffix: "%"
+        onValueEdited: function(value) {
+            appearanceSettingsTab.overlayScalePercent = value
+        }
+    }
+
+    SettingsToggle {
+        title: "Collapse bubble column by default"
+        description: "Start with the session bubble column collapsed."
+        checked: appearanceSettingsTab.bubbleColumnCollapsedByDefault
+        onToggled: function(enabled) {
+            appearanceSettingsTab.bubbleColumnCollapsedByDefault = enabled
         }
     }
 
@@ -134,6 +160,43 @@ Column {
         checked: appearanceSettingsTab.useAccentColorsForControls
         onToggled: function(enabled) {
             appearanceSettingsTab.useAccentColorsForControls = enabled
+        }
+    }
+
+    SettingsToggle {
+        title: "Edge proximity glow"
+        description: "Show a glow as the pointer approaches the screen edge."
+        checked: appearanceSettingsTab.proximityGlowEnabled
+        onToggled: function(enabled) {
+            appearanceSettingsTab.proximityGlowEnabled = enabled
+        }
+    }
+
+    SettingsSlider {
+        visible: appearanceSettingsTab.proximityGlowEnabled
+        title: "Glow strength"
+        description: "Adjust the maximum intensity of the edge glow."
+        from: 0
+        to: 1
+        stepSize: 0.05
+        decimals: 2
+        value: appearanceSettingsTab.proximityGlowStrength
+        onValueEdited: function(value) {
+            appearanceSettingsTab.proximityGlowStrength = value
+        }
+    }
+
+    SettingsSlider {
+        visible: appearanceSettingsTab.proximityGlowEnabled
+        title: "Glow activation distance"
+        description: "How far from the screen edge the glow starts to appear."
+        from: 20
+        to: 400
+        stepSize: 10
+        value: appearanceSettingsTab.proximityGlowDistancePx
+        valueSuffix: " px"
+        onValueEdited: function(value) {
+            appearanceSettingsTab.proximityGlowDistancePx = value
         }
     }
 

@@ -18,6 +18,8 @@ qt_add_executable(MediaPlayerOverlay
         WindowBlurController.h
         MediaManager.h
         MediaManager.cpp
+        GlobalShortcut.h
+        GlobalShortcut.cpp
         LyricsFetcher.h
         LyricsUtils.h
         PlaybackTimeline.h
@@ -40,6 +42,7 @@ qt_add_qml_module(MediaPlayerOverlay
         components/media_player/LyricsBox.qml
         components/media_player/SourceBubblePanel.qml
         components/settings/SettingsBottomBar.qml
+        components/settings/GeneralSettingsTab.qml
         components/settings/AppearanceSettingsTab.qml
         components/settings/SettingsPlaceholderTab.qml
         components/settings/SettingsWindow.qml
@@ -47,6 +50,7 @@ qt_add_qml_module(MediaPlayerOverlay
         components/settings/settings_elements/SettingsToggle.qml
         components/settings/settings_elements/SettingsSlider.qml
         components/settings/settings_elements/SettingsColorPicker.qml
+        components/settings/settings_elements/SettingsKeybind.qml
         components/settings/settings_elements/HsvColorPicker.qml
         RESOURCES
         assets/icons/play.svg
@@ -54,9 +58,11 @@ qt_add_qml_module(MediaPlayerOverlay
         assets/icons/skip_next.svg
         assets/icons/skip_previous.svg
         assets/icons/pin.svg
+        assets/icons/chevron_left.svg
         assets/icons/pin_filled.svg
         assets/icons/pin_outline.svg
         assets/icons/lyrics.svg
+        assets/icons/music_note.svg
         assets/icons/settings.svg
         assets/icons/arrow_drop_down.svg
         assets/icons/add.svg
@@ -73,6 +79,8 @@ target_link_libraries(MediaPlayerOverlay PRIVATE
         Qt6::QuickEffects
         dwmapi
         windowsapp
+        shell32
+        ole32
 )
 
 if(BUILD_TESTING)

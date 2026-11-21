@@ -5,6 +5,10 @@ Window {
     id: settingsWindow
 
     property string selectedTab: "General"
+    property string dockEdge: "right"
+    property real edgeHoldDurationMs: 500
+    property real peekAutoHideMs: 1000
+    property real expandedAutoHideMs: 800
     property string appearanceMode: "Acrylic"
     property string colorTheme: "Album Cover"
     property bool useSongAccentColors: false
@@ -15,6 +19,13 @@ Window {
     property real albumCoverBlur: 80
     property real backgroundBrightness: 0
     property real backgroundSaturation: 0
+    property real overlayScalePercent: 100
+    property bool bubbleColumnCollapsedByDefault: true
+    property bool autostartEnabled: false
+    property string globalShortcut: ""
+    property bool proximityGlowEnabled: true
+    property real proximityGlowStrength: 0.85
+    property int proximityGlowDistancePx: 140
 
     function pageForSelectedTab() {
         switch (selectedTab) {
@@ -34,9 +45,33 @@ Window {
     Component {
         id: generalSettingsPage
 
-        SettingsPlaceholderTab {
-            heading: "General"
-            description: "General application settings will be available here."
+        GeneralSettingsTab {
+            dockEdge: settingsWindow.dockEdge
+            edgeHoldDurationMs: settingsWindow.edgeHoldDurationMs
+            peekAutoHideMs: settingsWindow.peekAutoHideMs
+            expandedAutoHideMs: settingsWindow.expandedAutoHideMs
+            autostartEnabled: settingsWindow.autostartEnabled
+            globalShortcut: settingsWindow.globalShortcut
+            globalShortcutError: globalShortcutManager.error
+
+            onDockEdgeEdited: function(edge) {
+                settingsWindow.dockEdge = edge
+            }
+            onEdgeHoldDurationEdited: function(durationMs) {
+                settingsWindow.edgeHoldDurationMs = durationMs
+            }
+            onPeekAutoHideEdited: function(durationMs) {
+                settingsWindow.peekAutoHideMs = durationMs
+            }
+            onExpandedAutoHideEdited: function(durationMs) {
+                settingsWindow.expandedAutoHideMs = durationMs
+            }
+            onAutostartEdited: function(enabled) {
+                settingsWindow.autostartEnabled = enabled
+            }
+            onGlobalShortcutEdited: function(sequence) {
+                settingsWindow.globalShortcut = sequence
+            }
         }
     }
 
@@ -54,6 +89,11 @@ Window {
             albumCoverBlur: settingsWindow.albumCoverBlur
             backgroundBrightness: settingsWindow.backgroundBrightness
             backgroundSaturation: settingsWindow.backgroundSaturation
+            overlayScalePercent: settingsWindow.overlayScalePercent
+            bubbleColumnCollapsedByDefault: settingsWindow.bubbleColumnCollapsedByDefault
+            proximityGlowEnabled: settingsWindow.proximityGlowEnabled
+            proximityGlowStrength: settingsWindow.proximityGlowStrength
+            proximityGlowDistancePx: settingsWindow.proximityGlowDistancePx
 
             onAppearanceModeChanged: settingsWindow.appearanceMode = appearanceMode
             onColorThemeChanged: settingsWindow.colorTheme = colorTheme
@@ -70,6 +110,16 @@ Window {
                 settingsWindow.backgroundBrightness = backgroundBrightness
             onBackgroundSaturationChanged:
                 settingsWindow.backgroundSaturation = backgroundSaturation
+            onOverlayScalePercentChanged:
+                settingsWindow.overlayScalePercent = overlayScalePercent
+            onBubbleColumnCollapsedByDefaultChanged:
+                settingsWindow.bubbleColumnCollapsedByDefault = bubbleColumnCollapsedByDefault
+            onProximityGlowEnabledChanged:
+                settingsWindow.proximityGlowEnabled = proximityGlowEnabled
+            onProximityGlowStrengthChanged:
+                settingsWindow.proximityGlowStrength = proximityGlowStrength
+            onProximityGlowDistancePxChanged:
+                settingsWindow.proximityGlowDistancePx = proximityGlowDistancePx
         }
     }
 

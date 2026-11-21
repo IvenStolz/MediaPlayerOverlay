@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Shapes
 import "components/media_player"
 import "components/settings"
 
@@ -9,7 +10,7 @@ Window {
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
 
-    readonly property real cardScale: 0.8
+    readonly property real cardScale: 0.8 * settingsWindow.overlayScalePercent / 100
     readonly property int bubblePanelWidth: 52
     readonly property int edgeMargin: 12
     readonly property int peekWindowWidth: 68
@@ -18,14 +19,14 @@ Window {
     /** Overlay visibility state: "hidden" | "peek" | "expanded". */
     property string overlayState: "hidden"
     property bool isPinned: false
-    property bool bubblesExpanded: true
+    property bool bubblesExpanded: !settingsWindow.bubbleColumnCollapsedByDefault
     property int selectedBubbleIndex: 0
 
     /** Settings interface for edge-trigger behavior. */
-    property string dockEdge: "right"
-    property int edgeHoldDurationMs: 1000
-    property int peekAutoHideMs: 2500
-    property int expandedAutoHideMs: 800
+    property string dockEdge: settingsWindow.dockEdge
+    property int edgeHoldDurationMs: settingsWindow.edgeHoldDurationMs
+    property int peekAutoHideMs: settingsWindow.peekAutoHideMs
+    property int expandedAutoHideMs: settingsWindow.expandedAutoHideMs
 
     /** Cached geometry of the screen where the edge trigger fired. */
     property int activeScreenX: 0
@@ -33,6 +34,11 @@ Window {
     property int activeScreenWidth: Screen.width
     property int activeScreenHeight: Screen.height
     property int triggerCursorY: 200
+
+    /** Settings interface for edge proximity glow. */
+    property bool proximityGlowEnabled: settingsWindow.proximityGlowEnabled
+    property real proximityGlowStrength: settingsWindow.proximityGlowStrength
+    property int proximityGlowDistancePx: settingsWindow.proximityGlowDistancePx
 
     /** True while the cursor is over either the media card or the visible bubble window. */
     readonly property bool anyOverlayHovered: expandedHover.hovered
@@ -58,6 +64,13 @@ Window {
     Binding { target: edgeTrigger; property: "edge"; value: root.dockEdge }
     Binding { target: edgeTrigger; property: "holdDurationMs"; value: root.edgeHoldDurationMs }
     Binding { target: edgeTrigger; property: "enabled"; value: root.overlayState === "hidden" }
+    Binding {
+        target: globalShortcutManager
+        property: "sequence"
+        value: settingsWindow.globalShortcut
+    }
+    Binding { target: edgeTrigger; property: "proximityEnabled"; value: root.proximityGlowEnabled }
+    Binding { target: edgeTrigger; property: "proximityDistancePx"; value: root.proximityGlowDistancePx }
 
     function updateWindowPosition() {
         const targetWidth = overlayState === "expanded" ? cardWidthScaled : peekWindowWidth
@@ -76,6 +89,18 @@ Window {
         const targetY = Math.max(minY, Math.min(maxY, Math.round(triggerCursorY - (targetHeight / 2))))
 
         windowBlurController.setWindowGeometry(root, targetX, targetY, targetWidth, targetHeight)
+    }
+
+    function showFromGlobalShortcut() {
+        if (overlayState === "hidden" && !edgeTrigger.triggerAtCursor())
+            return
+
+        peekHideTimer.stop()
+        fadeOutAnimation.stop()
+        opacity = 1.0
+        overlayState = "expanded"
+        raise()
+        requestActivate()
     }
 
     function updateWindowBlur() {
@@ -109,6 +134,11 @@ Window {
         Qt.callLater(updateWindowBlur)
     }
 
+    onCardScaleChanged: {
+        if (overlayState === "expanded")
+            Qt.callLater(updateWindowPosition)
+    }
+
     Component.onCompleted: {
         windowBlurController.configureOverlayWindow(root)
     }
@@ -122,6 +152,7 @@ Window {
                 root.activeScreenWidth = screenWidth
                 root.activeScreenHeight = screenHeight
                 root.triggerCursorY = cursorY
+                root.bubblesExpanded = !settingsWindow.bubbleColumnCollapsedByDefault
                 root.overlayState = "peek"
                 peekHideTimer.restart()
             }
@@ -135,6 +166,13 @@ Window {
         }
     }
 
+    Connections {
+        target: globalShortcutManager
+        function onActivated() {
+            root.showFromGlobalShortcut()
+        }
+    }
+
     /** Fades out the unpinned overlay before hiding the native window. */
     SequentialAnimation {
         id: fadeOutAnimation
@@ -143,7 +181,7 @@ Window {
             target: root
             property: "opacity"
             to: 0.0
-            duration: 180
+            duration: 1000
             easing.type: Easing.InQuad
         }
 
@@ -159,9 +197,13 @@ Window {
         id: peekHideTimer
         interval: root.peekAutoHideMs
         onTriggered: {
-            if (root.overlayState === "peek" && !peekHover.hovered) {
-                fadeOutAnimation.start()
+            if (root.overlayState !== "peek" || peekHover.hovered)
+                return
+            if (edgeTrigger.cursorAtEdge) {
+                restart()
+                return
             }
+            fadeOutAnimation.start()
         }
     }
 
@@ -201,8 +243,127 @@ Window {
             anchors.fill: parent
             expanded: root.bubblesExpanded
             panelWidth: root.bubblePanelWidth
-            selectedIndex: root.selectedBubbleIndex
-            onSelectedIndexChanged: root.selectedBubbleIndex = selectedIndex
+            selectedAppId: mediaManager.currentSessionAppId
+            model: mediaManager.activeSessions
+            onSessionSelected: (appId) => mediaManager.selectSession(appId)
+        }
+    }
+
+    /** Full-height, click-through edge window rendering the Y-stretched radial proximity glow. */
+    Window {
+        id: glowWindow
+        transientParent: null
+        color: "transparent"
+        flags: Qt.FramelessWindowHint
+            | Qt.WindowStaysOnTopHint
+            | Qt.Tool
+            | Qt.WindowTransparentForInput
+            | Qt.WindowDoesNotAcceptFocus
+
+        readonly property int stripWidth: 48
+        readonly property real targetOpacity: root.proximityGlowEnabled
+            && root.overlayState === "hidden"
+            ? Math.max(0.0, Math.min(1.0, edgeTrigger.proximity * root.proximityGlowStrength))
+            : 0.0
+
+        visible: root.proximityGlowEnabled
+            && root.overlayState !== "expanded"
+            && (glowVisual.opacity > 0.005 || targetOpacity > 0.0)
+
+        x: root.dockEdge === "right"
+            ? (edgeTrigger.screenX + edgeTrigger.screenWidth - stripWidth)
+            : edgeTrigger.screenX
+        y: edgeTrigger.screenY
+        width: stripWidth
+        height: Math.max(1, edgeTrigger.screenHeight)
+
+        Component.onCompleted: windowBlurController.configureOverlayWindow(glowWindow)
+
+        Item {
+            id: glowVisual
+            readonly property real localCursorY: edgeTrigger.cursorY - edgeTrigger.screenY
+            readonly property real edgeCenterX: root.dockEdge === "right" ? width : 0
+
+            width: glowWindow.stripWidth
+            height: 260
+            x: 0
+            y: localCursorY - (height / 2)
+            opacity: glowWindow.targetOpacity
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: root.overlayState === "peek" ? 260 : 90
+                    easing.type: Easing.OutQuad
+                }
+            }
+
+            /** Outer blue radial glow stretched along the Y-axis. */
+            Shape {
+                anchors.fill: parent
+                layer.enabled: true
+                layer.smooth: true
+
+                ShapePath {
+                    strokeWidth: 0
+                    strokeColor: "transparent"
+                    fillGradient: RadialGradient {
+                        centerX: glowVisual.edgeCenterX
+                        centerY: glowVisual.height / 2
+                        focalX: glowVisual.edgeCenterX
+                        focalY: glowVisual.height / 2
+                        centerRadius: glowVisual.width * 1.1
+                        GradientStop { position: 0.0; color: "#cc3b9eff" }
+                        GradientStop { position: 0.45; color: "#552878ff" }
+                        GradientStop { position: 1.0; color: "#002878ff" }
+                    }
+                    PathRectangle {
+                        x: 0
+                        y: 0
+                        width: glowVisual.width
+                        height: glowVisual.height
+                    }
+                }
+
+                transform: Scale {
+                    origin.x: glowVisual.edgeCenterX
+                    origin.y: glowVisual.height / 2
+                    yScale: 2.6
+                }
+            }
+
+            /** Smaller white inner core stretched along the Y-axis. */
+            Shape {
+                anchors.fill: parent
+                layer.enabled: true
+                layer.smooth: true
+
+                ShapePath {
+                    strokeWidth: 0
+                    strokeColor: "transparent"
+                    fillGradient: RadialGradient {
+                        centerX: glowVisual.edgeCenterX
+                        centerY: glowVisual.height / 2
+                        focalX: glowVisual.edgeCenterX
+                        focalY: glowVisual.height / 2
+                        centerRadius: glowVisual.width * 0.45
+                        GradientStop { position: 0.0; color: "#eeffffff" }
+                        GradientStop { position: 0.55; color: "#44ffffff" }
+                        GradientStop { position: 1.0; color: "#00ffffff" }
+                    }
+                    PathRectangle {
+                        x: 0
+                        y: 0
+                        width: glowVisual.width
+                        height: glowVisual.height
+                    }
+                }
+
+                transform: Scale {
+                    origin.x: glowVisual.edgeCenterX
+                    origin.y: glowVisual.height / 2
+                    yScale: 2.0
+                }
+            }
         }
     }
 
@@ -266,12 +427,14 @@ Window {
             }
         }
 
-        Text {
+        Image {
             anchors.centerIn: parent
-            text: root.dockEdge === "right" ? "‹" : "›"
-            color: "#f2ffffff"
-            font.pixelSize: 26
-            font.bold: true
+            width: 30
+            height: 30
+            source: "qrc:/MediaPlayerOverlay/assets/icons/chevron_left.svg"
+            sourceSize.width: 40
+            sourceSize.height: 40
+            rotation: root.dockEdge === "right" ? 0 : 180
         }
 
         HoverHandler {

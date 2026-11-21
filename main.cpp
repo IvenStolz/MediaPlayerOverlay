@@ -4,6 +4,7 @@
 #include <QIcon>
 
 #include "EdgeTrigger.h"
+#include "GlobalShortcut.h"
 #include "MediaManager.h"
 #include "WindowBlurController.h"
 
@@ -37,9 +38,11 @@ int main(int argc, char *argv[]) {
     MediaManager mediaManager;
     WindowBlurController windowBlurController;
     EdgeTrigger edgeTrigger;
+    GlobalShortcut globalShortcut;
     engine.rootContext()->setContextProperty("mediaManager", &mediaManager);
     engine.rootContext()->setContextProperty("windowBlurController", &windowBlurController);
     engine.rootContext()->setContextProperty("edgeTrigger", &edgeTrigger);
+    engine.rootContext()->setContextProperty("globalShortcutManager", &globalShortcut);
     engine.load(QUrl(QStringLiteral("qrc:/MediaPlayerOverlay/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
