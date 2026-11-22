@@ -61,6 +61,9 @@ Window {
     width: overlayState === "expanded" ? cardWidthScaled : peekWindowWidth
     height: overlayState === "expanded" ? cardHeightScaled : peekWindowHeight
 
+    Binding { target: edgeTrigger; property: "fullscreenEnabled"; value: settingsWindow.fullscreenEnabled }
+    Binding { target: edgeTrigger; property: "fullscreenHoldKey"; value: settingsWindow.fullscreenHoldKey }
+    Binding { target: edgeTrigger; property: "appRules"; value: settingsWindow.appRules }
     Binding { target: edgeTrigger; property: "edge"; value: root.dockEdge }
     Binding { target: edgeTrigger; property: "holdDurationMs"; value: root.edgeHoldDurationMs }
     Binding { target: edgeTrigger; property: "enabled"; value: root.overlayState === "hidden" }
@@ -365,11 +368,6 @@ Window {
                 }
             }
         }
-    }
-
-    Shortcut {
-        sequence: "Escape"
-        onActivated: Qt.quit()
     }
 
     DragHandler {

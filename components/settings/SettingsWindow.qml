@@ -26,6 +26,9 @@ Window {
     property bool proximityGlowEnabled: true
     property real proximityGlowStrength: 0.85
     property int proximityGlowDistancePx: 140
+    property bool fullscreenEnabled: true
+    property string fullscreenHoldKey: ""
+    property var appRules: []
 
     function pageForSelectedTab() {
         switch (selectedTab) {
@@ -37,6 +40,8 @@ Window {
             return lyricsSettingsPage
         case "About":
             return aboutSettingsPage
+        case "Behavior":
+            return behaviorSettingsPage
         default:
             return generalSettingsPage
         }
@@ -72,6 +77,20 @@ Window {
             onGlobalShortcutEdited: function(sequence) {
                 settingsWindow.globalShortcut = sequence
             }
+        }
+    }
+
+    Component {
+        id: behaviorSettingsPage
+
+        BehaviorSettingsTab {
+            fullscreenEnabled: settingsWindow.fullscreenEnabled
+            fullscreenHoldKey: settingsWindow.fullscreenHoldKey
+            appRules: settingsWindow.appRules
+
+            onFullscreenEnabledEdited: function(enabled) { settingsWindow.fullscreenEnabled = enabled }
+            onFullscreenHoldKeyEdited: function(key) { settingsWindow.fullscreenHoldKey = key }
+            onAppRulesEdited: function(rules) { settingsWindow.appRules = rules }
         }
     }
 
@@ -294,7 +313,7 @@ Window {
                         spacing: 6
 
                         Repeater {
-                            model: ["General", "Appearance", "Playback", "Lyrics", "About"]
+                            model: ["General", "Behavior", "Appearance", "Playback", "Lyrics", "About"]
 
                             delegate: Rectangle {
                                 required property string modelData

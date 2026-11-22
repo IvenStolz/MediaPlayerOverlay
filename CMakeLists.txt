@@ -43,6 +43,7 @@ qt_add_qml_module(MediaPlayerOverlay
         components/media_player/SourceBubblePanel.qml
         components/settings/SettingsBottomBar.qml
         components/settings/GeneralSettingsTab.qml
+        components/settings/BehaviorSettingsTab.qml
         components/settings/AppearanceSettingsTab.qml
         components/settings/SettingsPlaceholderTab.qml
         components/settings/SettingsWindow.qml
@@ -51,6 +52,8 @@ qt_add_qml_module(MediaPlayerOverlay
         components/settings/settings_elements/SettingsSlider.qml
         components/settings/settings_elements/SettingsColorPicker.qml
         components/settings/settings_elements/SettingsKeybind.qml
+        components/settings/settings_elements/SettingsAppRule.qml
+        components/settings/settings_elements/SettingsAddButton.qml
         components/settings/settings_elements/HsvColorPicker.qml
         RESOURCES
         assets/icons/play.svg
